@@ -1,0 +1,6 @@
+.ssh
+.env
+node_modules
+dist
+.DS_Store
+pulseboard-cron.tar.gz

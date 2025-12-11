@@ -1,0 +1,19 @@
+{
+    "name": "pulseboard-cron-server",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "start": "bun run src/index.ts",
+        "dev": "bun run --watch src/index.ts"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.39.0",
+        "node-cron": "^3.0.3",
+        "p-limit": "^5.0.0",
+        "resend": "^4.0.0"
+    },
+    "devDependencies": {
+        "@types/node-cron": "^3.0.11",
+        "bun-types": "latest"
+    }
+}

@@ -1,0 +1,17 @@
+[Unit]
+Description=PulseBoard Monitoring Worker Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+# NOTE: Bun path assumes it's installed in the user's home directory
+ExecStart=/home/ubuntu/.bun/bin/bun run {{INSTALL_DIR}}/index.ts
+WorkingDirectory={{INSTALL_DIR}}
+# Use EnvironmentFile for a cleaner way to load .env
+EnvironmentFile={{INSTALL_DIR}}/.env
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
