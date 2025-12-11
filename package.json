@@ -3,8 +3,8 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "start": "bun run src/index.ts",
-        "dev": "bun run --watch src/index.ts"
+        "start": "bun run index.ts",
+        "dev": "bun run --watch index.ts"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.39.0",
@@ -13,7 +13,9 @@
         "resend": "^4.0.0"
     },
     "devDependencies": {
+        "@types/node": "^25.0.0",
         "@types/node-cron": "^3.0.11",
-        "bun-types": "latest"
+        "bun-types": "latest",
+        "typescript": "^5.9.3"
     }
 }
