@@ -13,9 +13,15 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || "https://pulseboard.lamas-co.c
 
 // CORS headers
 function corsHeaders(origin: string | null): HeadersInit {
-    const allowedOrigin = origin && CORS_ORIGINS.includes(origin) ? origin : CORS_ORIGINS[0];
+    const isAllowed = origin && (
+        CORS_ORIGINS.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.includes("localhost")
+    );
+    const allowedOrigin = isAllowed ? origin : CORS_ORIGINS[0];
+
     return {
-        "Access-Control-Allow-Origin": allowedOrigin,
+        "Access-Control-Allow-Origin": allowedOrigin || "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Access-Control-Max-Age": "86400",
