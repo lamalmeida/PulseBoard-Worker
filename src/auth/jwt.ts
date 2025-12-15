@@ -1,7 +1,9 @@
 /**
  * JWT Authentication Middleware
- * Validates Supabase JWTs and extracts user information
+ * Validates Supabase JWTs using Supabase Client
  */
+
+import { createClient } from "@supabase/supabase-js";
 
 // Simple base64url decode (works in Bun)
 function base64UrlDecode(str: string): string {
@@ -25,9 +27,8 @@ export interface AuthContext {
 }
 
 /**
- * Decode and validate a Supabase JWT
+ * Decode a Supabase JWT without verification
  * @param token The JWT token string
- * @param secret The JWT secret from Supabase
  * @returns The decoded payload or null if invalid
  */
 export function decodeJWT(token: string): JWTPayload | null {
@@ -43,54 +44,7 @@ export function decodeJWT(token: string): JWTPayload | null {
 }
 
 /**
- * Verify JWT signature using HMAC-SHA256
- * Uses Web Crypto API available in Bun
- */
-export async function verifyJWT(token: string, secret: string): Promise<JWTPayload | null> {
-    try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return null;
-
-        const [headerB64, payloadB64, signatureB64] = parts;
-
-        // Import the secret key
-        const key = await crypto.subtle.importKey(
-            'raw',
-            new TextEncoder().encode(secret),
-            { name: 'HMAC', hash: 'SHA-256' },
-            false,
-            ['verify']
-        );
-
-        // Decode the signature from base64url
-        const signature = Uint8Array.from(
-            atob(signatureB64.replace(/-/g, '+').replace(/_/g, '/')),
-            c => c.charCodeAt(0)
-        );
-
-        // Verify the signature
-        const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-        const isValid = await crypto.subtle.verify('HMAC', key, signature, data);
-
-        if (!isValid) return null;
-
-        // Decode and return the payload
-        const payload = JSON.parse(base64UrlDecode(payloadB64)) as JWTPayload;
-
-        // Check expiration
-        if (payload.exp && payload.exp * 1000 < Date.now()) {
-            return null; // Token expired
-        }
-
-        return payload;
-    } catch (err) {
-        console.error('JWT verification error:', err);
-        return null;
-    }
-}
-
-/**
- * Extract auth context from request
+ * Extract auth context from request using Supabase Client
  * @param request The incoming request
  * @returns AuthContext if valid, null otherwise
  */
@@ -102,21 +56,50 @@ export async function authenticate(request: Request): Promise<AuthContext | null
     }
 
     const token = authHeader.slice(7); // Remove 'Bearer ' prefix
-    const secret = process.env.SUPABASE_JWT_SECRET;
 
-    if (!secret) {
-        console.error('SUPABASE_JWT_SECRET not configured');
+    // Debug logging for troubleshooting
+    // const parts = token.split('.');
+    // try {
+    //     const header = JSON.parse(base64UrlDecode(parts[0]));
+    //     console.log(`[Auth] Token Header: alg=${header.alg}, kid=${header.kid || 'null'}, typ=${header.typ}`);
+    // } catch (e) {
+    //     console.error("[Auth] Failed to decode token header");
+    // }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+        console.error('SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
         return null;
     }
 
-    const payload = await verifyJWT(token, secret);
+    try {
+        // Use Supabase Client to verify token
+        // This handles HS256, RS256, ES256 automatically
+        const supabase = createClient(supabaseUrl, supabaseKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+                detectSessionInUrl: false
+            }
+        });
 
-    if (!payload || !payload.sub) {
+        // verify the token by fetching user
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+
+        if (error || !user) {
+            console.error("Authentication failed via Supabase client:", error?.message);
+            return null;
+        }
+
+        return {
+            userId: user.id,
+            email: user.email
+        };
+
+    } catch (err) {
+        console.error("Unexpected authentication error:", err);
         return null;
     }
-
-    return {
-        userId: payload.sub,
-        email: payload.email
-    };
 }

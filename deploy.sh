@@ -30,8 +30,13 @@ cd ${STAGING_DIR}
 ${BUN_PATH} install --production
 
 # 3. Preserve existing .env if it exists
-if [ -f "${INSTALL_DIR}/.env" ]; then
-    echo "✅ Copying existing .env to staging..."
+# 3. Handle .env file (Prioritize new uploaded .env)
+if [ -f "${STAGING_DIR}/.env" ]; then
+    echo "⚠️  Found .env in deployment package. Using it (overwriting existing)..."
+    # It's already in staging, so we use it. 
+    # Optionally backup the old one on server if you want, but backup happens in step 5 anyway.
+elif [ -f "${INSTALL_DIR}/.env" ]; then
+    echo "✅ No new .env found. Preserving existing .env from server..."
     cp ${INSTALL_DIR}/.env ${STAGING_DIR}/.env
 elif [ -f "${STAGING_DIR}/.env.example" ]; then
     echo "⚠️  No existing .env found. Creating from example."

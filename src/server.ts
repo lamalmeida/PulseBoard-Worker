@@ -13,15 +13,9 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || "https://pulseboard.lamas-co.c
 
 // CORS headers
 function corsHeaders(origin: string | null): HeadersInit {
-    const isAllowed = origin && (
-        CORS_ORIGINS.includes(origin) ||
-        origin.endsWith(".vercel.app") ||
-        origin.includes("localhost")
-    );
-    const allowedOrigin = isAllowed ? origin : CORS_ORIGINS[0];
-
+    const allowedOrigin = origin && CORS_ORIGINS.includes(origin) ? origin : CORS_ORIGINS[0];
     return {
-        "Access-Control-Allow-Origin": allowedOrigin || "*",
+        "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Access-Control-Max-Age": "86400",
@@ -89,6 +83,8 @@ async function handleRequest(request: Request): Promise<Response> {
     const path = url.pathname;
     const origin = request.headers.get("Origin");
 
+    console.log(`[${request.method}] ${path} | Origin: ${origin || 'null'}`);
+
     // Handle CORS preflight
     if (request.method === "OPTIONS") {
         return new Response(null, {
@@ -107,12 +103,14 @@ async function handleRequest(request: Request): Promise<Response> {
         const auth = await authenticate(request);
 
         if (!auth) {
+            console.warn(`[401] Unauthorized access attempt to ${path}`);
             return errorResponse("Unauthorized", 401, origin);
         }
 
         const matched = matchRoute(request.method, path);
 
         if (!matched) {
+            console.warn(`[404] Route not found: ${path}`);
             return errorResponse("Not Found", 404, origin);
         }
 
@@ -126,6 +124,7 @@ async function handleRequest(request: Request): Promise<Response> {
         }
     }
 
+    console.warn(`[404] Path not found: ${path}`);
     return errorResponse("Not Found", 404, origin);
 }
 
