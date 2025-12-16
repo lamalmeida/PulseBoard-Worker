@@ -6,6 +6,9 @@ type EndpointInsert = Database["public"]["Tables"]["endpoints"]["Insert"];
 type EndpointUpdate = Database["public"]["Tables"]["endpoints"]["Update"];
 type CheckInsert = Database["public"]["Tables"]["checks"]["Insert"];
 type NotificationInsert = Database["public"]["Tables"]["notifications"]["Insert"];
+type StatusPageInsert = Database["public"]["Tables"]["status_pages"]["Insert"];
+type StatusPageUpdate = Database["public"]["Tables"]["status_pages"]["Update"];
+type StatusPageEndpointInsert = Database["public"]["Tables"]["status_page_endpoints"]["Insert"];
 
 export class PulseBoardAPI {
     /**
@@ -99,7 +102,20 @@ export class PulseBoardAPI {
         return await supabase
             .from("checks")
             .delete()
-            .lt("created_at", olderThanDate.toISOString());
+            .lt("checked_at", olderThanDate.toISOString());
+    }
+
+    /**
+     * Get global platform statistics.
+     */
+    static async getGlobalStats() {
+        const { count, error } = await supabase
+            .from("endpoints")
+            .select("*", { count: "exact", head: true })
+            .eq("is_active", true); // Only active monitors? Or all? User said "active monitors count".
+        // "Active monitors count" usually means is_active=true.
+
+        return { count: count || 0, error };
     }
 
     // ========================================
@@ -190,7 +206,7 @@ export class PulseBoardAPI {
             .from("checks")
             .select("*")
             .eq("endpoint_id", endpointId)
-            .order("created_at", { ascending: false })
+            .order("checked_at", { ascending: false })
             .range(offset, offset + limit - 1);
     }
 
@@ -206,7 +222,7 @@ export class PulseBoardAPI {
             .from("checks")
             .select("status, response_time")
             .eq("endpoint_id", endpointId)
-            .gte("created_at", since);
+            .gte("checked_at", since);
 
         if (error) return { data: null, error };
 
@@ -253,6 +269,196 @@ export class PulseBoardAPI {
             .in("endpoint_id", endpointIds)
             .order("sent_at", { ascending: false })
             .limit(limit);
+    }
+
+    // ========================================
+    // Status Page Methods
+    // ========================================
+
+    /**
+     * Get a public status page by slug, including endpoints and recent checks.
+     * @param slug 
+     */
+    static async getPublicStatusPageBySlug(slug: string) {
+        // 1. Get the page
+        const { data: page, error } = await supabase
+            .from("status_pages")
+            .select("*, status_page_endpoints(endpoint_id)")
+            .eq("slug", slug)
+            .eq("is_public", true)
+            .single();
+
+        if (error || !page) return { data: null, error };
+
+        // 2. Get Endpoints details
+        const endpointIds = page.status_page_endpoints.map((spe: any) => spe.endpoint_id);
+
+        if (endpointIds.length === 0) {
+            return { data: { ...page, endpoints: [] }, error: null };
+        }
+
+        const { data: endpoints, error: endpointsError } = await supabase
+            .from("endpoints")
+            .select("id, name, url")
+            .in("id", endpointIds)
+            .order("name");
+
+        if (endpointsError) return { data: null, error: endpointsError };
+
+        // 3. Get recent checks for each endpoint (limit 90)
+        // Similar to frontend logic, we'll fetch in parallel for now.
+        const endpointsWithChecks = await Promise.all(
+            endpoints.map(async (endpoint) => {
+                const { data: checks } = await supabase
+                    .from("checks")
+                    .select("id, status, response_time, checked_at")
+                    .eq("endpoint_id", endpoint.id)
+                    .order("checked_at", { ascending: false })
+                    .limit(90);
+
+                return {
+                    ...endpoint,
+                    checks: checks ? [...checks].reverse() : [], // Oldest first for chart/bars
+                    latestCheck: checks?.[0]
+                };
+            })
+        );
+
+        return {
+            data: {
+                ...page,
+                endpoints: endpointsWithChecks
+            },
+            error: null
+        };
+    }
+
+    /**
+     * Get all status pages for a user.
+     * @param userId 
+     */
+    static async getStatusPagesByUser(userId: string) {
+        return await supabase
+            .from("status_pages")
+            .select("*, status_page_endpoints(endpoint_id)")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false });
+    }
+
+    /**
+     * Get a single status page by ID.
+     * @param id 
+     * @param userId 
+     */
+    static async getStatusPageById(id: string, userId: string) {
+        return await supabase
+            .from("status_pages")
+            .select("*, status_page_endpoints(endpoint_id), endpoints:status_page_endpoints(endpoints(*))")
+            .eq("id", id)
+            .eq("user_id", userId)
+            .single();
+    }
+
+    /**
+     * Check if a slug is unique.
+     * @param slug 
+     */
+    static async isSlugUnique(slug: string) {
+        const { data } = await supabase
+            .from("status_pages")
+            .select("id")
+            .eq("slug", slug)
+            .single();
+        return !data;
+    }
+
+    /**
+     * Create a new status page.
+     * @param data 
+     * @param endpointIds 
+     */
+    static async createStatusPage(data: StatusPageInsert, endpointIds: string[]) {
+        // 1. Create the page
+        const { data: page, error } = await supabase
+            .from("status_pages")
+            .insert(data)
+            .select()
+            .single();
+
+        if (error || !page) return { data: null, error };
+
+        // 2. Link endpoints if provided
+        if (endpointIds.length > 0) {
+            const links = endpointIds.map(eid => ({
+                status_page_id: page.id,
+                endpoint_id: eid
+            }));
+
+            const { error: linkError } = await supabase
+                .from("status_page_endpoints")
+                .insert(links);
+
+            if (linkError) console.error("Error linking endpoints:", linkError);
+        }
+
+        return { data: page, error: null };
+    }
+
+    /**
+     * Update a status page.
+     * @param id 
+     * @param userId 
+     * @param data 
+     * @param endpointIds (Optional) If provided, replaces existing links.
+     */
+    static async updateStatusPage(id: string, userId: string, data: StatusPageUpdate, endpointIds?: string[]) {
+        // 1. Update the page fields
+        const { data: page, error } = await supabase
+            .from("status_pages")
+            .update(data)
+            .eq("id", id)
+            .eq("user_id", userId)
+            .select()
+            .single();
+
+        if (error) return { data: null, error };
+
+        // 2. Update endpoints if provided (Replace Strategy)
+        if (endpointIds !== undefined) {
+            // Delete existing
+            await supabase
+                .from("status_page_endpoints")
+                .delete()
+                .eq("status_page_id", id);
+
+            // Insert new
+            if (endpointIds.length > 0) {
+                const links = endpointIds.map(eid => ({
+                    status_page_id: id,
+                    endpoint_id: eid
+                }));
+                await supabase
+                    .from("status_page_endpoints")
+                    .insert(links);
+            }
+        }
+
+        return { data: page, error: null };
+    }
+
+    /**
+     * Delete a status page.
+     * @param id 
+     * @param userId 
+     */
+    static async deleteStatusPage(id: string, userId: string) {
+        // Links cascade delete usually, but we can verify.
+        // Assuming cascade on foreign key, just delete the page.
+        return await supabase
+            .from("status_pages")
+            .delete()
+            .eq("id", id)
+            .eq("user_id", userId);
     }
 }
 

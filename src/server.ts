@@ -7,6 +7,8 @@ import { authenticate, AuthContext } from "./auth/jwt";
 import { endpointRoutes } from "./routes/endpoints";
 import { checkRoutes } from "./routes/checks";
 import { notificationRoutes } from "./routes/notifications";
+import { statusPageRoutes } from "./routes/status-pages";
+import { statsRoutes } from "./routes/stats";
 
 const PORT = parseInt(process.env.API_PORT || "3001");
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "https://pulseboard.lamas-co.com").split(",");
@@ -58,6 +60,7 @@ const routes: Route[] = [
     ...endpointRoutes,
     ...checkRoutes,
     ...notificationRoutes,
+    ...statusPageRoutes,
 ];
 
 // Parse URL path params
@@ -98,13 +101,32 @@ async function handleRequest(request: Request): Promise<Response> {
         return jsonResponse({ status: "healthy", timestamp: new Date().toISOString() }, 200, origin);
     }
 
+        ...notificationRoutes,
+        ...statusPageRoutes,
+        ...statsRoutes,
+    ];
+
+    // ...
+
     // All /api/* routes require authentication
     if (path.startsWith("/api/")) {
-        const auth = await authenticate(request);
+        // Public routes exception
+        const isPublic = path.includes("/api/status-pages/public/") ||
+            path === "/api/stats/global";
 
-        if (!auth) {
-            console.warn(`[401] Unauthorized access attempt to ${path}`);
-            return errorResponse("Unauthorized", 401, origin);
+        let auth: AuthContext | null = null;
+        if (!isPublic) {
+            auth = await authenticate(request);
+
+            if (!auth) {
+                console.warn(`[401] Unauthorized access attempt to ${path}`);
+                return errorResponse("Unauthorized", 401, origin);
+            }
+        } else {
+            // Mock auth for public routes if needed, or handle in route
+            // RouteHandler expects auth, so we can pass a dummy or null (need to update type or pass dummy)
+            // Let's pass a "public" context
+            auth = { userId: "public", email: "public@system" };
         }
 
         const matched = matchRoute(request.method, path);
