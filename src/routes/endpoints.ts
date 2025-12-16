@@ -4,7 +4,7 @@
  */
 
 import { PulseBoardAPI } from "../api";
-import { type RouteHandler, jsonResponse, errorResponse } from "../server";
+import { type RouteHandler, jsonResponse, errorResponse } from "../http";
 import type { AuthContext } from "../auth/jwt";
 
 // GET /api/endpoints - List all endpoints for user

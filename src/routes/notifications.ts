@@ -4,7 +4,7 @@
  */
 
 import { PulseBoardAPI } from "../api";
-import { type RouteHandler, jsonResponse, errorResponse } from "../server";
+import { type RouteHandler, jsonResponse, errorResponse } from "../http";
 
 // GET /api/notifications - List notifications for user
 const listNotifications: RouteHandler = async (request, auth) => {

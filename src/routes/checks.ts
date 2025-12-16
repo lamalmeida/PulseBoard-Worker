@@ -4,7 +4,7 @@
  */
 
 import { PulseBoardAPI } from "../api";
-import { type RouteHandler, jsonResponse, errorResponse } from "../server";
+import { type RouteHandler, jsonResponse, errorResponse } from "../http";
 
 // GET /api/endpoints/:id/checks - Get check history
 const getChecks: RouteHandler = async (request, auth, params) => {

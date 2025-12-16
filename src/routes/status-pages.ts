@@ -4,7 +4,7 @@
  */
 
 import { PulseBoardAPI } from "../api";
-import { type RouteHandler, jsonResponse, errorResponse } from "../server";
+import { type RouteHandler, jsonResponse, errorResponse } from "../http";
 
 // GET /api/status-pages - List all status pages for user
 const listStatusPages: RouteHandler = async (request, auth) => {
