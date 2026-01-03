@@ -1,5 +1,5 @@
 
-const CORS_ORIGINS = (process.env.CORS_ORIGINS || "https://pulseboard.lamas-co.com").split(",");
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || "https://pulseboard.lamas-co.com,https://lamas-co.com,https://www.lamas-co.com").split(",");
 
 // Auth context interface (moved from jwt.ts if needed, but RouteHandler uses it)
 // Actually AuthContext is in jwt.ts, so we import it.
