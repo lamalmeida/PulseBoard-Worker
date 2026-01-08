@@ -10,11 +10,11 @@ export async function runDispatcherLoop() {
     while (true) {
         try {
             // 1. Fetch Candidates
-            const { data: endpoints, error } = await PulseBoardAPI.fetchCandidates(50);
+            const { data: endpoints, error } = await PulseBoardAPI.fetchCandidates(10);
 
             if (error) {
                 console.error("❌ Dispatcher Fetch Error:", error.message);
-                await new Promise(r => setTimeout(r, 950));
+                await new Promise(r => setTimeout(r, 100));
                 continue;
             }
 
@@ -44,7 +44,7 @@ export async function runDispatcherLoop() {
             console.error("❌ Dispatcher Crash:", err);
         }
 
-        // 4. Sleep 1s
-        await new Promise(r => setTimeout(r, 1000));
+        // 4. Sleep 100ms
+        await new Promise(r => setTimeout(r, 100));
     }
 }

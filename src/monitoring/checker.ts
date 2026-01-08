@@ -65,11 +65,12 @@ export async function checkEndpoint(endpoint: Endpoint) {
     // Push to Buffer
     checkBuffer.push({
         endpoint_id: endpoint.id,
+        checked_at: new Date().toISOString(),
         status,
         response_time: responseTime,
         status_code: statusCode,
         error_message: errorMsg
-    });
+    }, endpoint.check_interval || 60);
 
     // Handle Notifications & State
     const state = localState.get(endpoint.id) || { lastCheck: 0, consecutiveFailures: 0, previousStatus: 'unknown' };
