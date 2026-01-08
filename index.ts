@@ -7,9 +7,9 @@ console.log("🚀 PulseBoard Worker Starting on Oracle Cloud...");
 // Start HTTP API Server
 startServer();
 
-// Run cleanup every 24 hours
-// Initial cleanup? Maybe not needed to block start.
-setInterval(cleanupOldChecks, 1000 * 60 * 60 * 24);
+// Run cleanup every 1 hour
+cleanupOldChecks();
+setInterval(cleanupOldChecks, 1000 * 60 * 60);
 
 // Handle graceful shutdown
 process.on("SIGINT", () => {

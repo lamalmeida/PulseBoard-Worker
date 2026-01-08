@@ -14,7 +14,7 @@ export async function runDispatcherLoop() {
 
             if (error) {
                 console.error("❌ Dispatcher Fetch Error:", error.message);
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 950));
                 continue;
             }
 

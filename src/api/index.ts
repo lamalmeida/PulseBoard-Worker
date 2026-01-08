@@ -48,7 +48,8 @@ export class PulseBoardAPI {
     static async logChecks(checks: CheckInsert[]) {
         return await supabase
             .from("checks")
-            .insert(checks);
+            .insert(checks)
+            .select("id");
     }
 
     /**
@@ -103,6 +104,66 @@ export class PulseBoardAPI {
             .from("checks")
             .delete()
             .lt("checked_at", olderThanDate.toISOString());
+    }
+
+    /**
+     * Get IDs of endpoints that have checks within a specific time range.
+     * Useful for batch processing cleanup.
+     */
+    static async getEndpointsWithChecks(since: string, until: string) {
+        // limit to unique endpoint_ids.
+        // Supabase doesn't support .distinct() easily on select with order, but we can just fetch all and dedup in JS or use a hack.
+        // Actually, just fetching distinct endpoint_ids is tough without raw sql or a stored proc if the table is huge.
+        // For now, let's just fetch all active endpoints, it's safer/easier.
+        return await supabase.from("endpoints").select("id").eq("is_active", true);
+    }
+
+    /**
+     * Get checks for a specific endpoint within a time range.
+     * @param endpointId
+     * @param since ISO string
+     * @param until ISO string
+     */
+    static async getChecksInTimeRange(endpointId: string, since: string, until: string) {
+        return await supabase
+            .from("checks")
+            .select("id, checked_at, status, status_code, response_time, num_checks")
+            .eq("endpoint_id", endpointId)
+            .gte("checked_at", since)
+            .lt("checked_at", until)
+            .order("checked_at", { ascending: true });
+    }
+
+    /**
+     * Delete checks for a specific endpoint within a time range.
+     * @param endpointId
+     * @param since ISO string
+     * @param until ISO string
+     */
+    static async deleteChecksInTimeRange(endpointId: string, since: string, until: string, excludeCheckIds?: string[]) {
+        let query = supabase
+            .from("checks")
+            .delete()
+            .eq("endpoint_id", endpointId)
+            .gte("checked_at", since)
+            .lt("checked_at", until);
+
+        if (excludeCheckIds && excludeCheckIds.length > 0) {
+            query = query.not("id", "in", `(${excludeCheckIds.join(",")})`);
+        }
+
+        return await query;
+    }
+
+    /**
+     * Delete checks by their IDs.
+     * @param checkIds Array of check UUIDs
+     */
+    static async deleteChecksByIds(checkIds: string[]) {
+        return await supabase
+            .from("checks")
+            .delete()
+            .in("id", checkIds);
     }
 
     /**

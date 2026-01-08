@@ -95,6 +95,7 @@ export interface Database {
           status_code: number
           response_time: number
           error_message: string | null
+          num_checks: number
         }
         Insert: {
           id?: string
@@ -104,6 +105,7 @@ export interface Database {
           status_code: number
           response_time: number
           error_message?: string | null
+          num_checks?: number
         }
         Update: {
           id?: string
@@ -113,6 +115,7 @@ export interface Database {
           status_code?: number
           response_time?: number
           error_message?: string | null
+          num_checks?: number
         }
       }
       notifications: {
